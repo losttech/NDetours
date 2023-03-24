@@ -2,11 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <LangVersion>10.0</LangVersion>
+    <LangVersion>11.0</LangVersion>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
     <!-- Package stuff -->
+    <Version>0.0.1</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <!--<PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>-->
 
     <!-- The following is recommended for public projects -->
@@ -18,11 +21,17 @@
 
   <ItemGroup>
     <None Include="..\LICENSE" Pack="true" PackagePath="" />
+    <None Include="..\README.md" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="AMD64\detours.dll" Pack="true" PackagePath="runtimes\win-x64\native" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- The following is recommended for public projects -->
     <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
+    <PackageReference Include="PInvoke.Kernel32" Version="0.7.124" />
   </ItemGroup>
 
 </Project>
