@@ -1,13 +1,20 @@
 ﻿namespace NDetours;
 
 using System.Diagnostics;
+using System.IO;
+using System.Runtime.Versioning;
 using System.Text;
+using System.Threading.Tasks;
 
 using PInvoke;
 
+#if WINDOWS10_0_17763_0_OR_GREATER
+using Windows.System;
+#endif
+
 public static class ProcessDetour {
     public static unsafe Process Start(string exe,
-                                       IReadOnlyDictionary<string, string> env,
+                                       IReadOnlyDictionary<string, string>? env,
                                        Kernel32.CreateProcessFlags flags,
                                        string[] injectDlls) {
         var startupInfo = new Kernel32.STARTUPINFO {
@@ -23,7 +30,7 @@ public static class ProcessDetour {
             }
 
             flags |= Kernel32.CreateProcessFlags.CREATE_UNICODE_ENVIRONMENT;
-            char[] envBlock = MakeEnvironmentBlock(env);
+            char[]? envBlock = MakeEnvironmentBlock(env);
 
             if (!Detour.CreateProcessWithDlls(
                     exe,
@@ -46,7 +53,83 @@ public static class ProcessDetour {
         return Process.GetProcessById(processInfo.dwProcessId);
     }
 
-    static char[] MakeEnvironmentBlock(IReadOnlyDictionary<string, string> env) {
+    /// <summary>
+    /// Launches UWP app and injects specified DLLs into it.
+    /// </summary>
+    /// <param name="debugPause">Allows debugging injection process by waiting for 30 seconds,
+    /// which gives time to attach debugger to <c>NDetours.exe</c></param>
+    /// <returns>The newly launched process</returns>
+    /// <exception cref="FileNotFoundException">
+    /// <para>App package specified in <paramref name="packageFullName"/> is not installed.</para>
+    /// <para>-or-</para>
+    /// <para><paramref name="appUserModelID"/> does not refer to a known app.</para>
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The app was already running</exception>
+#if WINDOWS10_0_19041_0_OR_GREATER
+    [SupportedOSPlatform("windows10.0.19041.0")]
+    public static async Task<Process> Start(string appUserModelID,
+                                            string packageFullName,
+                                            string? arguments,
+                                            IReadOnlyDictionary<string, string>? env,
+                                            string[] injectDlls,
+                                            bool debugPause = false) {
+        string commandLine = $"\"{CommandLine.ExePath}\" inject"
+                           + $" \"--dlls={string.Join(Path.PathSeparator, injectDlls)}\""
+                           + " --resume";
+        if (debugPause)
+            commandLine += " --debug";
+
+        char[]? environment = MakeEnvironmentBlock(env);
+
+        var appDiagnosticInfos = await AppDiagnosticInfo.RequestInfoForAppAsync(appUserModelID)
+                                                        .AsTask().ConfigureAwait(false);
+
+        var appInfo =
+            appDiagnosticInfos.FirstOrDefault(
+                info => info.AppInfo.Package.Id.FullName == packageFullName)
+         ?? throw new FileNotFoundException("Package not found", fileName: packageFullName);
+
+        foreach (var resourceGroup in appInfo.GetResourceGroups()) {
+            var groupState = resourceGroup.GetStateReport();
+            if (groupState.ExecutionState is AppResourceGroupExecutionState.Running
+                or AppResourceGroupExecutionState.Suspending) {
+                throw new InvalidOperationException("App is already running");
+            }
+        }
+
+        var debugSettings = PackageDebug.CreateSettings();
+
+        debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
+        debugSettings.TerminateAllProcesses(packageFullName).ThrowOnFailure();
+
+        debugSettings.EnableDebugging(packageFullName: packageFullName,
+                                      debuggerCommandLine: commandLine,
+                                      environment: environment)
+                     .ThrowOnFailure();
+
+        int processID;
+        try {
+            var activator = new ApplicationActivationManager();
+            activator.ActivateApplication(appUserModelId: appUserModelID, arguments: arguments,
+                                          ActivateOptions.None, out processID)
+                     .ThrowOnFailure();
+        } finally {
+            debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
+        }
+
+        return Process.GetProcessById(processID);
+    }
+#else
+    public static unsafe Process Start(string appUserModelID, string packageFullName,
+                                       string? arguments, string[] injectDlls,
+                                       bool debugPause = false) {
+        throw new PlatformNotSupportedException();
+    }
+#endif
+
+    static char[]? MakeEnvironmentBlock(IReadOnlyDictionary<string, string>? env) {
+        if (env is null) return null;
+
         var sb = new StringBuilder();
         foreach (var kv in env) {
             if (kv.Key.Contains('='))
