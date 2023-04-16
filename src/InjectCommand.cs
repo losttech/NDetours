@@ -11,7 +11,7 @@ using PInvoke;
 
 using static PInvoke.Kernel32;
 
-class InjectCommand: ConsoleCommand {
+public class InjectCommand: ConsoleCommand {
     public override int Run(string[] remainingArguments) {
         this.CheckRequiredArguments();
 

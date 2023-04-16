@@ -58,6 +58,13 @@ public static class ProcessDetour {
     /// </summary>
     /// <param name="debugPause">Allows debugging injection process by waiting for 30 seconds,
     /// which gives time to attach debugger to <c>NDetours.exe</c></param>
+    /// <param name="launcherExe">Path to the executable, that will be called to
+    /// inject DLLs.
+    /// <para>The simplest way to set is to point this parameter back to your own executable,
+    /// and make it handle the <c>inject</c> command.
+    /// Use <see cref="InjectCommand"/> to do it via
+    /// <see href="https://github.com/fschwiet/ManyConsole/#quick-start-guide">ManyConsole</see>.
+    /// </para></param>
     /// <returns>The newly launched process</returns>
     /// <exception cref="FileNotFoundException">
     /// <para>App package specified in <paramref name="packageFullName"/> is not installed.</para>
@@ -71,9 +78,10 @@ public static class ProcessDetour {
                                             string packageFullName,
                                             string? arguments,
                                             IReadOnlyDictionary<string, string>? env,
+                                            string launcherExe,
                                             string[] injectDlls,
                                             bool debugPause = false) {
-        string commandLine = $"\"{CommandLine.ExePath}\" inject"
+        string commandLine = $"\"{launcherExe}\" inject"
                            + $" \"--dlls={string.Join(Path.PathSeparator, injectDlls)}\""
                            + " --resume";
         if (debugPause)
