@@ -110,10 +110,10 @@ public static class ProcessDetour {
         debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
         debugSettings.TerminateAllProcesses(packageFullName).ThrowOnFailure();
 
-        debugSettings.EnableDebugging(packageFullName: packageFullName,
-                                      debuggerCommandLine: commandLine,
-                                      environment: environment)
-                     .ThrowOnFailure();
+        EnableDebugging(debugSettings,
+                        packageFullName: packageFullName,
+                        debuggerCommandLine: commandLine,
+                        environment: environment);
 
         int processID;
         try {
@@ -134,6 +134,17 @@ public static class ProcessDetour {
         throw new PlatformNotSupportedException();
     }
 #endif
+
+    static unsafe void EnableDebugging(IPackageDebugSettings debugSettings,
+                                       string packageFullName, string debuggerCommandLine,
+                                       char[]? environment) {
+        fixed (char* envPtr = environment) {
+            debugSettings.EnableDebugging(packageFullName: packageFullName,
+                                          debuggerCommandLine: debuggerCommandLine,
+                                          environment: (IntPtr)envPtr)
+                         .ThrowOnFailure();
+        }
+    }
 
     static char[]? MakeEnvironmentBlock(IReadOnlyDictionary<string, string>? env) {
         if (env is null) return null;

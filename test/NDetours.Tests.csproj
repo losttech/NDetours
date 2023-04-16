@@ -24,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\launcher\DetoursUWPLauncher.csproj" />
     <ProjectReference Include="..\src\NDetours.csproj" />
   </ItemGroup>
 

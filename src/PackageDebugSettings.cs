@@ -28,7 +28,7 @@ enum PackageExecutionState {
 interface IPackageDebugSettings {
     HResult EnableDebugging([MarshalAs(UnmanagedType.LPWStr)] string packageFullName,
                             [MarshalAs(UnmanagedType.LPWStr)] string? debuggerCommandLine,
-                            char[]? environment);
+                            IntPtr environment);
 
     HResult DisableDebugging([MarshalAs(UnmanagedType.LPWStr)] string packageFullName);
     HResult Suspend([MarshalAs(UnmanagedType.LPWStr)] string packageFullName);
