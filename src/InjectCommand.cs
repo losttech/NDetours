@@ -28,7 +28,7 @@ public class InjectCommand: ConsoleCommand {
         Debug.WriteLine("opened process");
 
         try {
-            if (!Detour.UpdateProcessWithDll(process, this.DLLs, this.DLLs.Length))
+            if (!Detour.UpdateProcessWithDll(process, this.DLLs.ToArray(), this.DLLs.Count))
                 throw new Win32Exception();
 
             Debug.WriteLine("injected DLLs");
@@ -44,7 +44,7 @@ public class InjectCommand: ConsoleCommand {
 
     public int ProcessID { get; set; }
     public int ThreadID { get; set; }
-    public string[] DLLs { get; set; } = Array.Empty<string>();
+    public List<string> DLLs { get; set; } = new();
     public bool Resume { get; set; }
     public bool EnableDebugging { get; set; }
 
@@ -56,11 +56,7 @@ public class InjectCommand: ConsoleCommand {
         this.HasRequiredOption("p|pid=", "The process to inject into",
                                (int pid) => this.ProcessID = pid);
         this.HasOption("-tid=", "The main thread", (int tid) => this.ThreadID = tid);
-        this.HasRequiredOption("dlls=", "DLLs to inject",
-                               dlls => {
-                                   this.DLLs = dlls.Split(Path.PathSeparator).Where(s => s != "")
-                                                   .ToArray();
-                               });
+        this.HasOption("-dll=", "Add a DLL to inject", this.DLLs.Add);
         this.HasOption("resume:", "Resume the process after injecting",
                        s => this.Resume = s is null || s == "true");
         this.HasOption("debug:", "Wait for debugger to attach",

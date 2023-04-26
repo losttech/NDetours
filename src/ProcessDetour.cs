@@ -81,9 +81,10 @@ public static class ProcessDetour {
                                             string launcherExe,
                                             string[] injectDlls,
                                             bool debugPause = false) {
-        string commandLine = $"\"{launcherExe}\" inject"
-                           + $" \"--dlls={string.Join(Path.PathSeparator, injectDlls)}\""
-                           + " --resume";
+        string commandLine = $"\"{launcherExe}\" inject --resume";
+        foreach (string dll in injectDlls)
+            commandLine += $" -dll \"{dll}\"";
+
         if (debugPause)
             commandLine += " --debug";
 
