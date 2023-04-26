@@ -4,6 +4,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 
 using ManyConsole.CommandLineUtils;
 
@@ -13,6 +14,10 @@ using static PInvoke.Kernel32;
 
 public class InjectCommand: ConsoleCommand {
     public override int Run(string[] remainingArguments) {
+        if (this.EnableDebugging && !Debugger.IsAttached) {
+            Thread.Sleep(TimeSpan.FromSeconds(30));
+        }
+
         this.CheckRequiredArguments();
 
         uint access = ProcessAccess.PROCESS_VM_OPERATION
