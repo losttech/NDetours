@@ -32,8 +32,18 @@ public class InjectCommand: ConsoleCommand {
 
         Debug.WriteLine("opened process");
 
+        using var list = new StreamReader(this.DllListFileName, new FileStreamOptions {
+            Access = System.IO.FileAccess.Read,
+            Mode = FileMode.Open,
+            Share = System.IO.FileShare.ReadWrite,
+        });
+        var dlls = new List<string>();
+        for (string? dll = list.ReadLine(); dll is not null; dll = list.ReadLine())
+            if (!string.IsNullOrEmpty(dll))
+                dlls.Add(dll);
+
         try {
-            if (!Detour.UpdateProcessWithDll(process, this.DLLs.ToArray(), this.DLLs.Count))
+            if (!Detour.UpdateProcessWithDll(process, dlls.ToArray(), dlls.Count))
                 throw new Win32Exception();
 
             Debug.WriteLine("injected DLLs");
@@ -49,7 +59,7 @@ public class InjectCommand: ConsoleCommand {
 
     public int ProcessID { get; set; }
     public int ThreadID { get; set; }
-    public List<string> DLLs { get; set; } = new();
+    public string DllListFileName { get; set; } = null!;
     public bool Resume { get; set; }
     public bool EnableDebugging { get; set; }
 
@@ -61,7 +71,8 @@ public class InjectCommand: ConsoleCommand {
         this.HasRequiredOption("p|pid=", "The process to inject into",
                                (int pid) => this.ProcessID = pid);
         this.HasOption("-tid=", "The main thread", (int tid) => this.ThreadID = tid);
-        this.HasOption("-dll=", "Add a DLL to inject", this.DLLs.Add);
+        this.HasRequiredOption("-list=", "A file that contains list of DLLs to inject, 1 per line",
+                               s => this.DllListFileName = s);
         this.HasOption("resume:", "Resume the process after injecting",
                        s => this.Resume = s is null || s == "true");
         this.HasOption("debug:", "Wait for debugger to attach",

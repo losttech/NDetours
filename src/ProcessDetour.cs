@@ -82,51 +82,65 @@ public static class ProcessDetour {
                                             string[] injectDlls,
                                             bool debugPause = false) {
         string commandLine = $"\"{launcherExe}\" inject --resume";
-        foreach (string dll in injectDlls)
-            commandLine += $" -dll \"{dll}\"";
 
-        if (debugPause)
-            commandLine += " --debug";
-
-        char[]? environment = MakeEnvironmentBlock(env);
-
-        var appDiagnosticInfos = await AppDiagnosticInfo.RequestInfoForAppAsync(appUserModelID)
-                                                        .AsTask().ConfigureAwait(false);
-
-        var appInfo =
-            appDiagnosticInfos.FirstOrDefault(
-                info => info.AppInfo.Package.Id.FullName == packageFullName)
-         ?? throw new FileNotFoundException("Package not found", fileName: packageFullName);
-
-        foreach (var resourceGroup in appInfo.GetResourceGroups()) {
-            var groupState = resourceGroup.GetStateReport();
-            if (groupState.ExecutionState is AppResourceGroupExecutionState.Running
-                or AppResourceGroupExecutionState.Suspending) {
-                throw new InvalidOperationException("App is already running");
-            }
-        }
-
-        var debugSettings = PackageDebug.CreateSettings();
-
-        debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
-        debugSettings.TerminateAllProcesses(packageFullName).ThrowOnFailure();
-
-        EnableDebugging(debugSettings,
-                        packageFullName: packageFullName,
-                        debuggerCommandLine: commandLine,
-                        environment: environment);
-
-        int processID;
+        string listPath = Path.GetTempFileName();
         try {
-            var activator = new ApplicationActivationManager();
-            activator.ActivateApplication(appUserModelId: appUserModelID, arguments: arguments,
-                                          ActivateOptions.None, out processID)
-                     .ThrowOnFailure();
-        } finally {
-            debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
-        }
+            using var dllsFile = new StreamWriter(listPath, new FileStreamOptions {
+                Access = FileAccess.Write,
+                Mode = FileMode.Append,
+                Share = FileShare.Read,
+            });
+            foreach (string dll in injectDlls)
+                await dllsFile.WriteLineAsync(dll).ConfigureAwait(false);
+            await dllsFile.FlushAsync().ConfigureAwait(false);
 
-        return Process.GetProcessById(processID);
+            commandLine += $" -list \"{listPath}\"";
+
+            if (debugPause)
+                commandLine += " --debug";
+
+            char[]? environment = MakeEnvironmentBlock(env);
+
+            var appDiagnosticInfos = await AppDiagnosticInfo.RequestInfoForAppAsync(appUserModelID)
+                                                            .AsTask().ConfigureAwait(false);
+
+            var appInfo =
+                appDiagnosticInfos.FirstOrDefault(
+                    info => info.AppInfo.Package.Id.FullName == packageFullName)
+             ?? throw new FileNotFoundException("Package not found", fileName: packageFullName);
+
+            foreach (var resourceGroup in appInfo.GetResourceGroups()) {
+                var groupState = resourceGroup.GetStateReport();
+                if (groupState.ExecutionState is AppResourceGroupExecutionState.Running
+                    or AppResourceGroupExecutionState.Suspending) {
+                    throw new InvalidOperationException("App is already running");
+                }
+            }
+
+            var debugSettings = PackageDebug.CreateSettings();
+
+            debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
+            debugSettings.TerminateAllProcesses(packageFullName).ThrowOnFailure();
+
+            EnableDebugging(debugSettings,
+                            packageFullName: packageFullName,
+                            debuggerCommandLine: commandLine,
+                            environment: environment);
+
+            int processID;
+            try {
+                var activator = new ApplicationActivationManager();
+                activator.ActivateApplication(appUserModelId: appUserModelID, arguments: arguments,
+                                              ActivateOptions.None, out processID)
+                         .ThrowOnFailure();
+            } finally {
+                debugSettings.DisableDebugging(packageFullName).ThrowOnFailure();
+            }
+            return Process.GetProcessById(processID);
+        } finally {
+            if (File.Exists(listPath))
+                File.Delete(listPath);
+        }
     }
 #else
     public static unsafe Process Start(string appUserModelID, string packageFullName,
@@ -139,6 +153,9 @@ public static class ProcessDetour {
     static unsafe void EnableDebugging(IPackageDebugSettings debugSettings,
                                        string packageFullName, string debuggerCommandLine,
                                        char[]? environment) {
+        if (debuggerCommandLine.Length > 255)
+            throw new ArgumentOutOfRangeException(nameof(debuggerCommandLine), "Too long");
+
         fixed (char* envPtr = environment) {
             debugSettings.EnableDebugging(packageFullName: packageFullName,
                                           debuggerCommandLine: debuggerCommandLine,
