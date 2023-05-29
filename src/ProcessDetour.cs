@@ -12,37 +12,53 @@ using PInvoke;
 using Windows.System;
 #endif
 
-public static class ProcessDetour {
-    public static unsafe Process Start(string exe,
-                                       IReadOnlyDictionary<string, string>? env,
-                                       Kernel32.CreateProcessFlags flags,
-                                       string[] injectDlls) {
+public static partial class ProcessDetour {
+    public static Process Start(string exe,
+                                IReadOnlyDictionary<string, string>? env,
+                                Kernel32.CreateProcessFlags flags,
+                                string[] injectDlls) {
+        var startInfo = new StartInfo(exe) {
+            Flags = flags,
+        };
+        if (env is not null) {
+            startInfo.Environment = new Dictionary<string, string>();
+            foreach (var kv in env)
+                startInfo.Environment[kv.Key] = kv.Value;
+        }
+        foreach (string dll in injectDlls ?? throw new ArgumentNullException(nameof(injectDlls))) {
+            startInfo.InjectDlls.Add(dll);
+        }
+        return Start(startInfo);
+    }
+
+    public static unsafe Process Start(StartInfo startInfo) {
         var startupInfo = new Kernel32.STARTUPINFO {
             cb = sizeof(Kernel32.STARTUPINFO),
         };
         Kernel32.PROCESS_INFORMATION processInfo;
-        var dlls = new StrPtr[injectDlls.Length];
+        var flags = startInfo.Flags;
+        var dlls = new StrPtr[startInfo.InjectDlls.Count];
         byte*[] dllsMarked = new byte*[dlls.Length + 1];
         try {
-            for (int i = 0; i < injectDlls.Length; i++) {
-                dlls[i] = new(injectDlls[i], Encoding.ASCII);
+            for (int i = 0; i < startInfo.InjectDlls.Count; i++) {
+                dlls[i] = new(startInfo.InjectDlls[i], Encoding.ASCII);
                 dllsMarked[i] = (byte*)dlls[i].RawPointer;
             }
 
             flags |= Kernel32.CreateProcessFlags.CREATE_UNICODE_ENVIRONMENT;
-            char[]? envBlock = MakeEnvironmentBlock(env);
+            char[]? envBlock = MakeEnvironmentBlock(startInfo.Environment);
 
             if (!Detour.CreateProcessWithDlls(
-                    exe,
-                    commandLine: null,
+                    startInfo.Executable,
+                    commandLine: startInfo.CommandLine,
                     processAttributes: null, threadAttributes: null,
                     inheritHandles: true,
                     flags: flags,
                     lpEnvironment: envBlock,
-                    currentDirectory: null,
+                    currentDirectory: startInfo.WorkingDirectory,
                     ref startupInfo,
                     out processInfo,
-                    injectDlls.Length,
+                    startInfo.InjectDlls.Count,
                     dllsMarked,
                     IntPtr.Zero))
                 throw new Win32Exception();
@@ -164,7 +180,7 @@ public static class ProcessDetour {
         }
     }
 
-    static char[]? MakeEnvironmentBlock(IReadOnlyDictionary<string, string>? env) {
+    static char[]? MakeEnvironmentBlock(IEnumerable<KeyValuePair<string, string>>? env) {
         if (env is null) return null;
 
         var sb = new StringBuilder();
