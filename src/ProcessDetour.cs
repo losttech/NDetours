@@ -35,6 +35,10 @@ public static partial class ProcessDetour {
         var startupInfo = new Kernel32.STARTUPINFO {
             cb = sizeof(Kernel32.STARTUPINFO),
         };
+        if (startInfo.ShowWindow is { } style) {
+            startupInfo.dwFlags |= Kernel32.StartupInfoFlags.STARTF_USESHOWWINDOW;
+            startupInfo.wShowWindow = (ushort)style;
+        }
         Kernel32.PROCESS_INFORMATION processInfo;
         var flags = startInfo.Flags;
         var dlls = new StrPtr[startInfo.InjectDlls.Count];
