@@ -35,9 +35,14 @@ public static partial class ProcessDetour {
         var startupInfo = new Kernel32.STARTUPINFO {
             cb = sizeof(Kernel32.STARTUPINFO),
         };
-        if (startInfo.ShowWindow is { } style) {
+        if (startInfo.WindowStyle is { } style && style != ProcessWindowStyle.Normal) {
             startupInfo.dwFlags |= Kernel32.StartupInfoFlags.STARTF_USESHOWWINDOW;
-            startupInfo.wShowWindow = (ushort)style;
+            startupInfo.wShowWindow = style switch {
+                ProcessWindowStyle.Hidden => ShowWindow.HIDE,
+                ProcessWindowStyle.Minimized => ShowWindow.MINIMIZE,
+                ProcessWindowStyle.Maximized => ShowWindow.MAXIMIZE,
+                _ => throw new ArgumentOutOfRangeException(nameof(startInfo.WindowStyle)),
+            };
         }
         Kernel32.PROCESS_INFORMATION processInfo;
         var flags = startInfo.Flags;
@@ -199,5 +204,11 @@ public static partial class ProcessDetour {
         }
         sb.Append('\0');
         return sb.ToString().ToCharArray();
+    }
+
+    class ShowWindow {
+        public const int HIDE = 0;
+        public const int MINIMIZE = 2;
+        public const int MAXIMIZE = 3;
     }
 }
