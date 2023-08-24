@@ -50,7 +50,9 @@ public static partial class ProcessDetour {
         byte*[] dllsMarked = new byte*[dlls.Length + 1];
         try {
             for (int i = 0; i < startInfo.InjectDlls.Count; i++) {
-                dlls[i] = new(startInfo.InjectDlls[i], Encoding.ASCII);
+                string unicodePath = startInfo.InjectDlls[i];
+                string shortPath = UnicodePaths.GetShortPath(unicodePath);
+                dlls[i] = new(shortPath, Encoding.ASCII);
                 dllsMarked[i] = (byte*)dlls[i].RawPointer;
             }
 
