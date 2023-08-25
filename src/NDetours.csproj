@@ -8,7 +8,7 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
     <!-- Package stuff -->
-    <Version>0.0.10</Version>
+    <Version>0.0.11</Version>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Description>Managed package that simplifies injection of Detours-based DLLs</Description>

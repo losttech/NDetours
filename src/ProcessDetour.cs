@@ -51,8 +51,12 @@ public static partial class ProcessDetour {
         try {
             for (int i = 0; i < startInfo.InjectDlls.Count; i++) {
                 string unicodePath = startInfo.InjectDlls[i];
-                string shortPath = UnicodePaths.GetShortPath(unicodePath);
-                dlls[i] = new(shortPath, Encoding.ASCII);
+                string compatiblePath =
+                    unicodePath.Any(c => c > 127)
+                        ? UnicodePaths.GetShortPath(unicodePath)
+                        : unicodePath;
+                Debug.WriteLine(compatiblePath);
+                dlls[i] = new(compatiblePath, Encoding.ASCII);
                 dllsMarked[i] = (byte*)dlls[i].RawPointer;
             }
 
