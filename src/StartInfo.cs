@@ -2,17 +2,23 @@
 
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-
+using System.Text.Json.Serialization;
 using static PInvoke.Kernel32;
 
 partial class ProcessDetour {
     public sealed class StartInfo {
         public string Executable { get; }
-        public Collection<string> InjectDlls { get; } = new();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public Collection<string> InjectDlls { get; init; } = new();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public string? WorkingDirectory { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public string? CommandLine { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public IDictionary<string, string>? Environment { get; set; }
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public CreateProcessFlags Flags { get; set; } = CreateProcessFlags.None;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public ProcessWindowStyle WindowStyle { get; set; }
 
         public StartInfo(string executable) {
