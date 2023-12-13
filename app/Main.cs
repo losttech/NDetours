@@ -15,7 +15,9 @@ foreach (string dll in args.Skip(1)) {
 
 Console.Write("starting...");
 using var process = ProcessDetour.Start(startInfo);
-Console.WriteLine("OK");
+// workaround for https://github.com/dotnet/runtime/issues/95831
+using var _ = process.SafeHandle;
+Console.WriteLine($"OK. PID: {process.Id}");
 Console.Write("running...");
 process.WaitForExit();
 Console.WriteLine(process.ExitCode);
