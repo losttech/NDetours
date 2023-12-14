@@ -3,13 +3,18 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.Json.Serialization;
+
 using static PInvoke.Kernel32;
 
 partial class ProcessDetour {
     public sealed class StartInfo {
         public string Executable { get; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+#if NETSTANDARD2_0
+        public Collection<string> InjectDlls { get; set; } = new();
+#else
         public Collection<string> InjectDlls { get; init; } = new();
+#endif
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
         public string? WorkingDirectory { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
